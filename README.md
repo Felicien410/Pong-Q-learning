@@ -4,7 +4,17 @@
 
 ## I. Entraînement du Modèle
 
-Si vous désirez entraîner le modèle vous-même, une table Q pré-entraînée (`tableQ.json`), issue de 50 000 parties, est déjà fournie dans le dépôt.
+### I.1 Utiliser Modele predef
+
+Decompressez le Table.json.gz 
+
+'''sh
+gunzip -k nom_du_fichier.gz
+'''
+passez directement a l'etape II
+
+### I.1 Entrainer votre propre modele
+
 
 Pour démarrer le processus d'entraînement, exécutez la commande suivante dans votre terminal :
 
