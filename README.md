@@ -39,6 +39,6 @@ Une fois `http-server` installé, naviguez jusqu'au répertoire de votre projet 
 http-server
 ```
 
-Par défaut, cela hébergera vos fichiers sur `http://localhost:![Uploading Screenshot 2023-12-11 at 17.22.18.png…]()
+Par défaut, cela hébergera vos fichiers sur `http://localhost:
 8080` où vous pourrez accéder au jeu depuis votre navigateur web.
 
