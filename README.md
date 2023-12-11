@@ -14,7 +14,7 @@ gunzip -k nom_du_fichier.gz
 
 passez directement a l'etape II
 
-### I.1 Entrainer votre propre modele
+### I.2 Entrainez votre propre modele
 
 
 Pour démarrer le processus d'entraînement, exécutez la commande suivante dans votre terminal :
