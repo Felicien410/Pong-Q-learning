@@ -1,5 +1,7 @@
 # Projet Pong Apprentissage par Renforcement (Q-Learning)
 
+![Screenshot 2023-12-11 at 17 22 18](https://github.com/Felicien410/Pong-Q-learning/assets/97636902/013ca526-10ff-4454-a80e-b962c67f9003)
+
 ## I. Entraînement du Modèle
 
 Si vous désirez entraîner le modèle vous-même, une table Q pré-entraînée (`tableQ.json`), issue de 50 000 parties, est déjà fournie dans le dépôt.
@@ -26,4 +28,6 @@ Une fois `http-server` installé, naviguez jusqu'au répertoire de votre projet 
 http-server
 ```
 
-Par défaut, cela hébergera vos fichiers sur `http://localhost:8080` où vous pourrez accéder au jeu depuis votre navigateur web.
+Par défaut, cela hébergera vos fichiers sur `http://localhost:![Uploading Screenshot 2023-12-11 at 17.22.18.png…]()
+8080` où vous pourrez accéder au jeu depuis votre navigateur web.
+
