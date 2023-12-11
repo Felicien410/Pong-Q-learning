@@ -8,9 +8,10 @@
 
 Decompressez le Table.json.gz 
 
-'''sh
+```sh
 gunzip -k nom_du_fichier.gz
-'''
+```
+
 passez directement a l'etape II
 
 ### I.1 Entrainer votre propre modele
