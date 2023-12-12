@@ -28,7 +28,7 @@ class PongGame {
         this.paddleWidth = 10; // Largeur des raquettes
         this.paddleSpeed = 5;
         this.ballSize = 10;
-        this.maxScore = 5;
+        this.maxScore = 20;
         this.isGameOver = false;
     }
 
@@ -58,7 +58,7 @@ class PongGame {
         // Mise à jour des raquettes
         this.updatePaddleA(); // IA ou joueur automatique pour paddleA
         this.updatePaddleB(); // IA pour paddleB
-
+        
         // Vérifier les scores
         this.checkScore();
 
@@ -79,18 +79,30 @@ class PongGame {
         if (this.ballX <= this.paddleAX + this.paddleWidth &&
             this.ballY + this.ballSize >= this.paddleAY &&
             this.ballY <= this.paddleAY + this.paddleHeight) {
+            // Calculez le point de contact normalisé (-1 en haut de la raquette, 1 en bas)
+            let hitSpot = (this.ballY - (this.paddleAY + this.paddleHeight / 2)) / (this.paddleHeight / 2);
+
+            // Calculez l'angle de rebond en fonction du point de contact
+            let angle = hitSpot * Math.PI / 4; // Cela vous donne un angle entre -45 et 45 degrés
+    
+            // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
-            this.ballX = this.paddleAX + this.paddleWidth;
+            this.ballSpeedY = 5 * Math.sin(angle);
         }
 
         // Collision avec paddleB
         if (this.ballX >= this.paddleBX - this.ballSize &&
             this.ballY + this.ballSize >= this.paddleBY &&
             this.ballY <= this.paddleBY + this.paddleHeight) {
+            let hitSpot = (this.ballY - (this.paddleBY + this.paddleHeight / 2)) / (this.paddleHeight / 2);
+            let angle = hitSpot * Math.PI / 4; // Cela vous donne un angle entre -45 et 45 degrés
+    
+            // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
-            this.ballX = this.paddleBX - this.ballSize;
+            this.ballSpeedY = 5 * Math.sin(angle);
         }
     }
+
 
     updatePaddleA() {
         // Stratégie simple pour paddleA (suivre la balle)
@@ -139,7 +151,8 @@ class PongGame {
         let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
         let ballDirectionY = this.ballSpeedY > 0 ? "down" : "up";
         let distanceToBallY = Math.abs(this.paddleBY - this.ballY);
-        return `ballX:${Math.round(this.ballX)}_ballDirectionY:${ballDirectionY}_distanceToBallY:${Math.round(distanceToBallY)}_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;
+        console.log("future ball Y", futureBallY, "balle Y", this.ballY)
+        return `_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;
         }
 
     chooseAction(state) {
@@ -204,7 +217,7 @@ class PongGame {
         setInterval(() => {
             if (!this.isGameOver) {
                 this.update();
-                this.render();
+                //this.render();
             }
         }, 1000 / 60);
     }

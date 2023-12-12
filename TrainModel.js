@@ -8,7 +8,7 @@ class PongGame {
 
         // Paramètres Q-learning
         this.QTable = {}; // Table Q
-        this.learningRate = 0.50; // le taux d'apprentissage, il sert a calculer la nouvelle valeur de la récompense
+        this.learningRate = 0.5; // le taux d'apprentissage, il sert a calculer la nouvelle valeur de la récompense
         this.discountFactor = 0.98; // le facteur de réduction, il sert a calculer la valeur future de la récompense
         this.epsilon = 0.1; // le taux d'exploration, il sert a déterminer si on explore ou on exploite
         this.actions = ["stay", "moveDown", "moveUp"];
@@ -57,6 +57,9 @@ class PongGame {
 
         // Mise à jour des raquettes
         this.updatePaddleA(); //joueur automatique pour paddleA
+        
+       //si la balle part vers la gauche, on fais rien
+
         this.updatePaddleB(); // IA pour paddleB
 
         // Vérifier les scores
@@ -71,16 +74,27 @@ class PongGame {
         if (this.ballX <= this.paddleAX + this.paddleWidth &&
             this.ballY + this.ballSize >= this.paddleAY &&
             this.ballY <= this.paddleAY + this.paddleHeight) {
+            // Calculez le point de contact normalisé (-1 en haut de la raquette, 1 en bas)
+            let hitSpot = (this.ballY - (this.paddleAY + this.paddleHeight / 2)) / (this.paddleHeight / 2);
+
+            // Calculez l'angle de rebond en fonction du point de contact
+            let angle = hitSpot * Math.PI / 4; // Cela vous donne un angle entre -45 et 45 degrés
+    
+            // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
-            this.ballX = this.paddleAX + this.paddleWidth;
+            this.ballSpeedY = 5 * Math.sin(angle);
         }
 
         // Collision avec paddleB
         if (this.ballX >= this.paddleBX - this.ballSize &&
             this.ballY + this.ballSize >= this.paddleBY &&
             this.ballY <= this.paddleBY + this.paddleHeight) {
+            let hitSpot = (this.ballY - (this.paddleBY + this.paddleHeight / 2)) / (this.paddleHeight / 2);
+            let angle = hitSpot * Math.PI / 4; // Cela vous donne un angle entre -45 et 45 degrés
+    
+            // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
-            this.ballX = this.paddleBX - this.ballSize;
+            this.ballSpeedY = 5 * Math.sin(angle);
         }
     }
 
@@ -135,8 +149,8 @@ class PongGame {
         let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
         let ballDirectionY = this.ballSpeedY > 0 ? "down" : "up";
         let distanceToBallY = Math.abs(this.paddleBY - this.ballY);
-        return `ballX:${Math.round(this.ballX)}_ballDirectionY:${ballDirectionY}_distanceToBallY:${Math.round(distanceToBallY)}_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;
-        }
+        return `_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;   
+    }
 
     chooseAction(state) { // choisir l action a effectuer (monter, descendre, stay)
         if (!this.QTable[state]) { // Si l'état n'existe pas dans la table Q, l'ajouter (debut de la partie)
