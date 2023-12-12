@@ -147,8 +147,6 @@ class PongGame {
     
     getCurrentState() { // fournit toutes les infos qui faut pour que l ia puisse prendre une decision ( la vitesse de la balle, la position de la raquette, etc.)
         let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
-        let ballDirectionY = this.ballSpeedY > 0 ? "down" : "up";
-        let distanceToBallY = Math.abs(this.paddleBY - this.ballY);
         return `_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;   
     }
 

@@ -121,7 +121,6 @@ class PongGame {
 
     }
 
-
     calculateFutureBallPosition(currentBallX, currentBallY, speedX, speedY) {
         // pour predire excactement la ou la balle va aller (en Y)
         let futureBallX = currentBallX;
