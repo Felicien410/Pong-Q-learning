@@ -267,7 +267,7 @@ class PongGame {
     }
     
     runSimulation(numGames) {
-        const saveInterval = 1000; // Sauvegarde toutes les 1000 simulations ( car si on sauvegarde tout d un coup ca plante (trop de donnees))
+        const saveInterval = 100; // Sauvegarde toutes les 1000 simulations ( car si on sauvegarde tout d un coup ca plante (trop de donnees))
         const filename = 'tableQ.json'; // Nom du fichier de sauvegarde 
     
         for (let i = 0; i < numGames; i++) {
@@ -280,6 +280,8 @@ class PongGame {
             // Vérifiez si c'est le moment de sauvegarder la table Q
             if ((i + 1) % saveInterval === 0 || i === numGames - 1) {
                 this.saveQTableToFile(filename); // Sauvegarder dans le même fichier
+                this.epsilon *= 0.90; // Diminuer le taux d'exploration\
+                console.log("epsilon: " + this.epsilon);
             }
         }
     }
@@ -288,4 +290,4 @@ class PongGame {
 
 // Exemple d'utilisation
 let pongGame = new PongGame();
-pongGame.runSimulation(50000); // Exécuter 50000 simulations (c est beaucoup)
+pongGame.runSimulation(1300); // Exécuter 50000 simulations (c est beaucoup)
