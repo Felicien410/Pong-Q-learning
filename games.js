@@ -28,8 +28,11 @@ class PongGame {
         this.paddleWidth = 10; // Largeur des raquettes
         this.paddleSpeed = 5;
         this.ballSize = 10;
-        this.maxScore = 20;
+        this.maxScore = 5;
         this.isGameOver = false;
+        this.ballTouchedByPaddleA = false;
+        this.ballSpeedIncrease = 2;
+
     }
 
     resetBall(lastPointWinner) {
@@ -74,6 +77,7 @@ class PongGame {
         this.scoreBElement.textContent = this.scoreB;
     }
 
+
     checkPaddleCollision() {
         // Collision avec paddleA
         if (this.ballX <= this.paddleAX + this.paddleWidth &&
@@ -88,6 +92,15 @@ class PongGame {
             // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
             this.ballSpeedY = 5 * Math.sin(angle);
+            this.ballTouchedByPaddleA = true;
+            if (this.ballSpeedX >= -4 && this.ballSpeedX <= 4)
+            {
+
+                this.ballSpeedX *= this.ballSpeedIncrease;
+                this.ballSpeedY *= this.ballSpeedIncrease;
+            }
+            console.log("Hit by paddle A");
+
         }
 
         // Collision avec paddleB
@@ -100,6 +113,12 @@ class PongGame {
             // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
             this.ballSpeedY = 5 * Math.sin(angle);
+            if (this.ballSpeedX >= -4 && this.ballSpeedX <= 4)
+            {
+
+                this.ballSpeedX *= this.ballSpeedIncrease;
+                this.ballSpeedY *= this.ballSpeedIncrease;
+            }
         }
     }
 
@@ -115,10 +134,12 @@ class PongGame {
     }
 
     updatePaddleB() {
-        let currentState = this.getCurrentState();
-        let action = this.chooseAction(currentState);
-        this.paddleBY = this.executeAction(this.paddleBY, action);
-
+        if (this.ballTouchedByPaddleA) {
+            let currentState = this.getCurrentState();
+            let action = this.chooseAction(currentState);
+            this.paddleBY = this.executeAction(this.paddleBY, action);
+            this.ballTouchedByPaddleA = false;  // Réinitialiser après avoir réagi
+        }
     }
 
     calculateFutureBallPosition(currentBallX, currentBallY, speedX, speedY) {
@@ -148,8 +169,6 @@ class PongGame {
     
     getCurrentState() {
         let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
-        let ballDirectionY = this.ballSpeedY > 0 ? "down" : "up";
-        let distanceToBallY = Math.abs(this.paddleBY - this.ballY);
         console.log("future ball Y", futureBallY, "balle Y", this.ballY)
         return `_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;
         }
@@ -168,12 +187,29 @@ class PongGame {
         }
     }
 
+    calculateOptimalMove() {
+        // Cette méthode doit calculer la distance optimale que la raquette doit parcourir
+        // pour atteindre la position prévue de la balle. Cela pourrait être basé sur la vitesse de la balle,
+        // la direction, et la distance actuelle entre la raquette et la position future prévue de la balle.
+    
+        // Exemple de calcul simplifié (à affiner selon vos besoins) :
+        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
+        let distanceToFutureBallY = Math.abs(futureBallY - (this.paddleBY + this.paddleHeight / 2));
+    
+        return distanceToFutureBallY;
+    }
+
     executeAction(paddleBY, action) {
-        if (action === "moveUp") {
-            paddleBY = Math.max(paddleBY - this.paddleSpeed, 0);
-        } else if (action === "moveDown") {
-            paddleBY = Math.min(paddleBY + this.paddleSpeed, this.gameHeight - this.paddleHeight);
+        let optimalMove = this.calculateOptimalMove();
+    
+        if (action === "moveDown") {
+            paddleBY = Math.min(paddleBY + optimalMove, this.gameHeight - this.paddleHeight);
         }
+        if (action === "moveUp") {
+            paddleBY = Math.max(paddleBY - optimalMove, 0);
+        }
+        console.log("future ballY: " + this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY))
+        console.log("new paddleBY: " + paddleBY)
         return paddleBY;
     }
 

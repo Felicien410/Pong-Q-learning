@@ -10,7 +10,7 @@ class PongGame {
         this.QTable = {}; // Table Q
         this.learningRate = 0.5; // le taux d'apprentissage, il sert a calculer la nouvelle valeur de la récompense
         this.discountFactor = 0.98; // le facteur de réduction, il sert a calculer la valeur future de la récompense
-        this.epsilon = 0.1; // le taux d'exploration, il sert a déterminer si on explore ou on exploite
+        this.epsilon = 0.2; // le taux d'exploration, il sert a déterminer si on explore ou on exploite
         this.actions = ["stay", "moveDown", "moveUp"];
     }
 
@@ -31,6 +31,8 @@ class PongGame {
         this.ballSize = 10;
         this.maxScore = 5;
         this.isGameOver = false;
+        this.ballTouchedByPaddleA = false;
+        this.ballSpeedIncrease = 2;
     }
 
     resetBall(lastPointWinner) {
@@ -83,6 +85,15 @@ class PongGame {
             // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
             this.ballSpeedY = 5 * Math.sin(angle);
+            this.ballTouchedByPaddleA = true;
+            if (this.ballSpeedX >= -4 && this.ballSpeedX <= 4)
+            {
+
+                this.ballSpeedX *= this.ballSpeedIncrease;
+                this.ballSpeedY *= this.ballSpeedIncrease;
+            }
+            console.log("Hit by paddle A");
+
         }
 
         // Collision avec paddleB
@@ -95,6 +106,12 @@ class PongGame {
             // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
             this.ballSpeedY = 5 * Math.sin(angle);
+            if (this.ballSpeedX >= -4 && this.ballSpeedX <= 4)
+            {
+
+                this.ballSpeedX *= this.ballSpeedIncrease;
+                this.ballSpeedY *= this.ballSpeedIncrease;
+            }
         }
     }
 
@@ -110,14 +127,23 @@ class PongGame {
     }
 
     updatePaddleB() {
-        let currentState = this.getCurrentState(); // Etat actuel (vitesse de la balle, position de la raquette, etc.)
-        let action = this.chooseAction(currentState); // Action à effectuer (monter, descendre, rester)
-        this.paddleBY = this.executeAction(this.paddleBY, action); // Mise à jour de la position de la raquette
-
-        // Mise à jour de la table Q
-        let reward = this.calculateReward(); // Calcul de la récompense
-        let nextState = this.getCurrentState(); // Etat suivant (vitesse de la balle, position de la raquette, etc.)
-        this.updateQTable(currentState, action, reward, nextState); 
+        if (this.ballTouchedByPaddleA) {
+            // Première décision : où se positionner
+            let positionState = this.getCurrentPositionState();
+            let positionAction = this.choosePositionAction(positionState);
+            this.paddleBY = this.executePositionAction(this.paddleBY, positionAction);
+    
+            // Deuxième décision : comment frapper la balle
+            // let hitState = this.getCurrentHitState();
+            // let hitAction = this.chooseHitAction(hitState);
+            // Gérer l'action de frappe (ajuster l'angle de rebond, etc.)
+    
+            let reward = this.calculateReward();
+            let nextState = this.getCurrentState(); // Mise à jour après l'action de frappe
+            this.updateQTable(positionState, positionAction, reward, nextState);
+    
+            this.ballTouchedByPaddleA = false;
+        }
     }
 
     calculateFutureBallPosition(currentBallX, currentBallY, speedX, speedY) {
@@ -156,6 +182,7 @@ class PongGame {
             this.actions.forEach(a => this.QTable[state][a] = 0);
         }
         if (Math.random() < this.epsilon) { // Exploration (choisir une action au hasard grace a epsilon a 20% (1 chance sur 5 de choisir une action au hasard))
+            console.log("random action");
             return this.actions[Math.floor(Math.random() * this.actions.length)];
         } else { //Equation de Bellman (pour calculer la nouvelle valeur de la récompense, j ai rien compris mais ca marche)
             let maxQValue = Math.max(...Object.values(this.QTable[state]));
@@ -164,15 +191,66 @@ class PongGame {
         }
     }
 
-    executeAction(paddleBY, action) { // mettre a jour la position de la raquette
-        if (action === "moveUp") {
-            paddleBY = Math.max(paddleBY - this.paddleSpeed, 0);
-        } else if (action === "moveDown") {
-            paddleBY = Math.min(paddleBY + this.paddleSpeed, this.gameHeight - this.paddleHeight);
-        }
-        return paddleBY;
+    calculateOptimalMove() {
+        // Cette méthode doit calculer la distance optimale que la raquette doit parcourir
+        // pour atteindre la position prévue de la balle. Cela pourrait être basé sur la vitesse de la balle,
+        // la direction, et la distance actuelle entre la raquette et la position future prévue de la balle.
+    
+        // Exemple de calcul simplifié (à affiner selon vos besoins) :
+        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
+        let distanceToFutureBallY = Math.abs(futureBallY - (this.paddleBY + this.paddleHeight / 2));
+    
+        return distanceToFutureBallY;
     }
 
+    executeAction(paddleBY, action) {
+        let optimalMove = this.calculateOptimalMove();
+    
+        if (action === "moveDown") {
+            paddleBY = Math.min(paddleBY + optimalMove, this.gameHeight - this.paddleHeight);
+        }
+        if (action === "moveUp") {
+            paddleBY = Math.max(paddleBY - optimalMove, 0);
+        }
+        console.log("future ballY: " + this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY))
+        console.log("new paddleBY: " + paddleBY)
+        return paddleBY;
+    }
+    
+    // getCurrentHitState() {
+    //     let ballRelativePosition = this.ballY - this.paddleBY;
+    //     if (ballRelativePosition < -this.paddleHeight / 3) {
+    //         return "ballTop";
+    //     } else if (ballRelativePosition > this.paddleHeight / 3) {
+    //         return "ballBottom";
+    //     } else {
+    //         return "ballMiddle";
+    //     }
+    // }
+
+    // chooseHitAction(hitState) {
+    //     let hitActions = ["hitTop", "hitMiddle", "hitBottom"];
+    
+    //     // Vérifier si l'état existe dans la table Q et l'initialiser si nécessaire
+    //     if (!this.QTable[hitState]) {
+    //         this.QTable[hitState] = {};
+    //         hitActions.forEach(action => {
+    //             this.QTable[hitState][action] = 0; // Initialiser à 0
+    //         });
+    //     }
+    
+    //     // Décision basée sur l'exploration ou l'exploitation
+    //     if (Math.random() < this.epsilon) {
+    //         // Exploration: choisir une action de frappe au hasard
+    //         return hitActions[Math.floor(Math.random() * hitActions.length)];
+    //     } else {
+    //         // Exploitation: choisir la meilleure action de frappe basée sur la table Q
+    //         let maxQValue = Math.max(...Object.values(this.QTable[hitState]));
+    //         let bestHitActions = hitActions.filter(action => this.QTable[hitState][action] === maxQValue);
+    //         return bestHitActions[Math.floor(Math.random() * bestHitActions.length)];
+    //     }
+    // }
+    
     updateQTable(state, action, reward, nextState) { // mettre a jour la table Q
         // va enregistrer la nouvelle valeur de la récompense dans la table Q, grace a l equation de Bellman 
         let oldQValue = this.QTable[state][action];
@@ -204,6 +282,7 @@ class PongGame {
         if (this.ballX + this.ballSize >= this.gameWidth) {
             reward += MISS_PENALTY;
             console.log("Missed!");
+            console.log("ballY: " + this.ballY + " paddleBY: " + this.paddleBY);
         }
 
         // Balle touchée par Paddle B
@@ -220,11 +299,12 @@ class PongGame {
         let distanceToFutureBallY = Math.abs(futureBallY - paddleCenterY);
     
         // Récompense ou pénalité basée sur la proximité
-        if (distanceToFutureBallY < DISTANCE_THRESHOLD) {
+        if (this.paddleBY <= futureBallY && futureBallY <= (this.paddleBY + this.paddleHeight)) {
             reward += PROXIMITY_REWARD;
         } else {
             reward += DISTANCE_PENALTY;
         }
+        console.log("reward: " + reward);
     
         return reward;    
     }
@@ -290,4 +370,4 @@ class PongGame {
 
 // Exemple d'utilisation
 let pongGame = new PongGame();
-pongGame.runSimulation(1300); // Exécuter 50000 simulations (c est beaucoup)
+pongGame.runSimulation(3300); // Exécuter 50000 simulations (c est beaucoup)
