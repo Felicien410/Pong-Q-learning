@@ -32,7 +32,8 @@ class PongGame {
         this.maxScore = 5;
         this.isGameOver = false;
         this.ballTouchedByPaddleA = false;
-        this.ballSpeedIncrease = 2;
+        this.ballSpeedIncrease = 1.1;
+        this.maxBallSpeed = 6;
     }
 
     resetBall(lastPointWinner) {
@@ -86,9 +87,7 @@ class PongGame {
             this.ballSpeedX *= -1;
             this.ballSpeedY = 5 * Math.sin(angle);
             this.ballTouchedByPaddleA = true;
-            if (this.ballSpeedX >= -4 && this.ballSpeedX <= 4)
-            {
-
+            if (Math.abs(this.ballSpeedX) < this.maxBallSpeed) {
                 this.ballSpeedX *= this.ballSpeedIncrease;
                 this.ballSpeedY *= this.ballSpeedIncrease;
             }
@@ -106,9 +105,7 @@ class PongGame {
             // Mettez à jour la vitesse de la balle
             this.ballSpeedX *= -1;
             this.ballSpeedY = 5 * Math.sin(angle);
-            if (this.ballSpeedX >= -4 && this.ballSpeedX <= 4)
-            {
-
+            if (Math.abs(this.ballSpeedX) < this.maxBallSpeed) {
                 this.ballSpeedX *= this.ballSpeedIncrease;
                 this.ballSpeedY *= this.ballSpeedIncrease;
             }
@@ -129,9 +126,9 @@ class PongGame {
     updatePaddleB() {
         if (this.ballTouchedByPaddleA) {
             // Première décision : où se positionner
-            let positionState = this.getCurrentPositionState();
-            let positionAction = this.choosePositionAction(positionState);
-            this.paddleBY = this.executePositionAction(this.paddleBY, positionAction);
+            let positionState = this.getCurrentState();
+            let positionAction = this.chooseAction(positionState);
+            this.paddleBY = this.executeAction(this.paddleBY, positionAction);
     
             // Deuxième décision : comment frapper la balle
             // let hitState = this.getCurrentHitState();
