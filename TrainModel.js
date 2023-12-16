@@ -12,6 +12,7 @@ class PongGame {
         this.discountFactor = 0.98; // le facteur de réduction, il sert a calculer la valeur future de la récompense
         this.epsilon = 0.2; // le taux d'exploration, il sert a déterminer si on explore ou on exploite
         this.actions = ["stay", "moveDown", "moveUp"];
+        this.hitActions = ["hitTop", "hitMiddle", "hitBottom"];
     }
 
     resetGameState() {
@@ -63,6 +64,18 @@ class PongGame {
         
        //si la balle part vers la gauche, on fais rien
 
+    //    if (this.paddleBY === 537.5)
+    //    {
+    //         console.log("ballX", this.ballX)
+    //         console.log("ballY", this.ballY)
+    //         console.log("ballSpeedX", this.ballSpeedX)
+    //         console.log("ballSpeedY", this.ballSpeedY)
+    //         console.log("paddleBY", this.paddleBY)
+    //         console.log("paddleAY", this.paddleAY)
+    //         console.log("paddleBX", this.paddleBX)
+    //         console.log("paddleAX", this.paddleAX)
+
+    //    }
         this.updatePaddleB(); // IA pour paddleB
 
         // Vérifier les scores
@@ -119,8 +132,16 @@ class PongGame {
         } else if (this.ballY < this.paddleAY + this.paddleHeight / 2) {
             this.paddleAY -= this.paddleSpeed;
         }
-        this.paddleAY = Math.max(0, Math.min(this.gameHeight - this.paddleHeight, this.paddleAY)); 
-        // ca va permettre de pas sortir de l ecran
+    
+        // // Ajouter une variation aléatoire, en veillant à ne pas sortir des limites
+        // let randomAdjustment = (Math.random() - 0.5) * 10; // variation aléatoire de +/- 5 pixels
+        // let newPaddleY = this.paddleAY + randomAdjustment;
+        // newPaddleY = Math.max(0, Math.min(this.gameHeight - this.paddleHeight, newPaddleY));
+    
+        // // Appliquer le déplacement uniquement si cela ne force pas la raquette à sortir des limites
+        // if (newPaddleY !== this.paddleAY) {
+        //     this.paddleAY = newPaddleY;
+        // }
     }
 
     updatePaddleB() {
@@ -131,9 +152,10 @@ class PongGame {
             this.paddleBY = this.executeAction(this.paddleBY, positionAction);
     
             // Deuxième décision : comment frapper la balle
-            // let hitState = this.getCurrentHitState();
-            // let hitAction = this.chooseHitAction(hitState);
-            // Gérer l'action de frappe (ajuster l'angle de rebond, etc.)
+            let hitState = this.getCurrentHitState();
+            let hitAction = this.chooseHitAction(hitState);
+            this.paddleBY = this.executeHitAction(this.paddleBY, hitAction);
+            //Gérer l'action de frappe (ajuster l'angle de rebond, etc.)
     
             let reward = this.calculateReward();
             let nextState = this.getCurrentState(); // Mise à jour après l'action de frappe
@@ -214,40 +236,110 @@ class PongGame {
         return paddleBY;
     }
     
-    // getCurrentHitState() {
-    //     let ballRelativePosition = this.ballY - this.paddleBY;
-    //     if (ballRelativePosition < -this.paddleHeight / 3) {
-    //         return "ballTop";
-    //     } else if (ballRelativePosition > this.paddleHeight / 3) {
-    //         return "ballBottom";
-    //     } else {
-    //         return "ballMiddle";
-    //     }
-    // }
+    getCurrentHitState() {
+        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
+        let paddleCenterY = this.paddleBY + this.paddleHeight / 2;
+        let ballRelativePosition = futureBallY - paddleCenterY;
+    
+        if (ballRelativePosition < -this.paddleHeight / 3) {
+            return "ballTop";
+        } else if (ballRelativePosition > this.paddleHeight / 3) {
+            return "ballBottom";
+        } else {
+            return "ballMiddle";
+        }
+    }
 
-    // chooseHitAction(hitState) {
-    //     let hitActions = ["hitTop", "hitMiddle", "hitBottom"];
+    chooseHitAction(hitState) {
+        // Vérifier si l'état existe dans la table Q et l'initialiser si nécessaire
+        if (!this.QTable[hitState]) {
+            this.QTable[hitState] = {};
+            this.hitActions.forEach(a => this.QTable[hitState][a] = 0);
+        }
+
+        // Choisir une action en fonction de la table Q
+        if (Math.random() < this.epsilon) {
+            return this.hitActions[Math.floor(Math.random() * this.hitActions.length)];
+        } else {
+            let maxQValue = Math.max(...Object.values(this.QTable[hitState]));
+            let bestActions = this.hitActions.filter(a => this.QTable[hitState][a] === maxQValue);
+            return bestActions[Math.floor(Math.random() * bestActions.length)];
+        }
+    }
     
-    //     // Vérifier si l'état existe dans la table Q et l'initialiser si nécessaire
-    //     if (!this.QTable[hitState]) {
-    //         this.QTable[hitState] = {};
-    //         hitActions.forEach(action => {
-    //             this.QTable[hitState][action] = 0; // Initialiser à 0
-    //         });
-    //     }
+    executeHitAction(paddleBY, hitAction) {
+        let adjustment = 0;
+        
+        console.log("hitAction: " + hitAction);
+        switch (hitAction) {
+            case "hitTop":
+                // Déplacer la raquette vers le haut pour frapper avec le haut de la raquette
+                // Si la raquette est déjà en haut, ne pas monter plus haut
+                if (paddleBY > 50) {
+                    adjustment = -this.paddleHeight / 5;
+                }
+                break;
+            case "hitMiddle":
+                // Pas besoin de déplacer la raquette pour un coup au milieu
+                adjustment = 0;
+                break;
+            case "hitBottom":
+                // Déplacer la raquette vers le bas pour frapper avec le bas de la raquette
+                // Si la raquette est déjà en bas, ne pas descendre plus bas
+                if (paddleBY < this.gameHeight - this.paddleHeight) {
+                    adjustment = this.paddleHeight / 5;
+                }
+                break;
+            default:
+                // En cas d'action inconnue, ne pas déplacer la raquette
+                adjustment = 0;
+                break;
+        }
     
-    //     // Décision basée sur l'exploration ou l'exploitation
-    //     if (Math.random() < this.epsilon) {
-    //         // Exploration: choisir une action de frappe au hasard
-    //         return hitActions[Math.floor(Math.random() * hitActions.length)];
-    //     } else {
-    //         // Exploitation: choisir la meilleure action de frappe basée sur la table Q
-    //         let maxQValue = Math.max(...Object.values(this.QTable[hitState]));
-    //         let bestHitActions = hitActions.filter(action => this.QTable[hitState][action] === maxQValue);
-    //         return bestHitActions[Math.floor(Math.random() * bestHitActions.length)];
-    //     }
-    // }
+        if (paddleBY + adjustment < 0 || paddleBY + adjustment > this.gameHeight ) {
+            return paddleBY;
+        }
+        // Appliquer l'ajustement tout en veillant à ce que la raquette reste dans les limites du jeu
+        paddleBY = paddleBY + adjustment;
+        console.log("new paddleBY after action top or bottom : " + paddleBY);
+        return paddleBY;
+    }
     
+    calculateBallLandingPositionAfterBounce() {
+
+        let impactYOnB = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY); //A to B
+
+        // Calculer le point de contact et l'angle de rebond sur la raquette B
+        let hitSpot = (impactYOnB - (this.paddleBY + this.paddleHeight / 2)) / (this.paddleHeight / 2);
+        let angle = hitSpot * Math.PI / 4; // Angle entre -45 et 45 degrés
+
+        // Vitesse de la balle après le rebond sur la raquette B
+        let newBallSpeedX = -this.ballSpeedX; // La vitesse X est inversée après le rebond
+        let newBallSpeedY = 5 * Math.sin(angle); // Nouvelle vitesse Y en fonction de l'angle
+
+        // Position initiale de la balle après le rebond
+        let newBallX = this.paddleBX - this.ballSize; // Position X juste après le rebond
+        let newBallY = impactYOnB;
+
+        // Simuler le mouvement de la balle jusqu'à ce qu'elle atteigne le mur gauche
+        while (newBallX > 0) {
+            newBallX += newBallSpeedX;
+            newBallY += newBallSpeedY;
+
+            // Gérer les rebonds verticaux
+            if (newBallY <= 0 || newBallY >= this.gameHeight - this.ballSize) {
+                newBallSpeedY *= -1;
+            }
+
+            // Inverser la direction horizontale si la balle atteint le côté gauche
+            if (newBallX <= 0) {
+                newBallSpeedX *= -1;
+            }
+    }
+    console.log("newBallY: " + newBallY);
+    return newBallY; 
+    }
+
     updateQTable(state, action, reward, nextState) { // mettre a jour la table Q
         // va enregistrer la nouvelle valeur de la récompense dans la table Q, grace a l equation de Bellman 
         let oldQValue = this.QTable[state][action];
@@ -266,45 +358,44 @@ class PongGame {
         return threshold;
     }
 
-    calculateReward() { // calculer la récompense
+
+    calculateReward() {
         const HIT_REWARD = 1;
         const MISS_PENALTY = -1;
-        const PROXIMITY_REWARD = 0.5;
-        const DISTANCE_PENALTY = -0.5;
-        const DISTANCE_THRESHOLD = this.calculateDistanceThreshold(); // calculer la distance entre la balle et la raquette , c est pour la récompense
-
+    
         let reward = 0;
-
-        // Balle manquée par Paddle B
-        if (this.ballX + this.ballSize >= this.gameWidth) {
-            reward += MISS_PENALTY;
-            console.log("Missed!");
-            console.log("ballY: " + this.ballY + " paddleBY: " + this.paddleBY);
-        }
-
-        // Balle touchée par Paddle B
-        if (this.ballX + this.ballSize >= this.paddleBX &&
-            this.ballY + this.ballSize >= this.paddleBY &&
-            this.ballY <= this.paddleBY + this.paddleHeight) {
-            console.log("Hit!");
-            reward += HIT_REWARD;
-        }
-
-        //Proximité de la balle
+    
+        // Proximité de la balle
         let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
         let paddleCenterY = this.paddleBY + this.paddleHeight / 2;
         let distanceToFutureBallY = Math.abs(futureBallY - paddleCenterY);
-    
+        
         // Récompense ou pénalité basée sur la proximité
-        if (this.paddleBY <= futureBallY && futureBallY <= (this.paddleBY + this.paddleHeight)) {
-            reward += PROXIMITY_REWARD;
+        if (distanceToFutureBallY < this.paddleHeight / 2) {
+            reward += 1;
+             // Calculer la position prévue de la balle après le rebond
+            let predictedLandingPosition = this.calculateBallLandingPositionAfterBounce();
+        
+            // Position de la raquette A
+            let paddleAPositionY = this.paddleAY + this.paddleHeight / 2;
+        
+            // Calculer la distance entre la position prévue de la balle et la raquette A
+            let distanceToPaddleA = Math.abs(predictedLandingPosition - paddleAPositionY);
+        
+            // Récompense basée sur l'éloignement de la raquette A
+            let distanceRatio = distanceToPaddleA / this.gameHeight;
+            let directionalReward = distanceRatio > 0.5 ? (distanceRatio - 0.5) * 2 : 0;
+            reward += directionalReward;
         } else {
-            reward += DISTANCE_PENALTY;
+            reward -= 0.5 * (distanceToFutureBallY / (this.gameHeight / 2));
         }
-        console.log("reward: " + reward);
     
-        return reward;    
+
+    
+        console.log("reward: " + reward);
+        return reward;
     }
+    
 
     checkScore() {
         if (this.ballX <= 0) {
@@ -367,4 +458,4 @@ class PongGame {
 
 // Exemple d'utilisation
 let pongGame = new PongGame();
-pongGame.runSimulation(3300); // Exécuter 50000 simulations (c est beaucoup)
+pongGame.runSimulation(10000); // Exécuter 50000 simulations (c est beaucoup)

@@ -5,6 +5,7 @@ class PongGame {
         this.resetGameState();
 
         this.actions = ["stay", "moveDown", "moveUp"];
+        this.hitActions = ["hitTop", "hitMiddle", "hitBottom"];
 
         this.paddleAElement = document.getElementById('paddleA');
         this.paddleBElement = document.getElementById('paddleB');
@@ -119,21 +120,32 @@ class PongGame {
     }
 
 
-    updatePaddleA() {
-        // Stratégie simple pour paddleA (suivre la balle)
-        if (this.ballY > this.paddleAY + this.paddleHeight / 2) {
-            this.paddleAY += this.paddleSpeed;
-        } else if (this.ballY < this.paddleAY + this.paddleHeight / 2) {
-            this.paddleAY -= this.paddleSpeed;
-        }
-        this.paddleAY = Math.max(0, Math.min(this.gameHeight - this.paddleHeight, this.paddleAY));
+updatePaddleA() {
+    // Stratégie simple pour paddleA (juste suivre la balle)
+    if (this.ballY > this.paddleAY + this.paddleHeight / 2) {
+        this.paddleAY += this.paddleSpeed;
+    } else if (this.ballY < this.paddleAY + this.paddleHeight / 2) {
+        this.paddleAY -= this.paddleSpeed;
     }
+
+    // Ajouter une variation aléatoire
+    let randomAdjustment = (Math.random() - 0.5) * 10; // variation aléatoire de +/- 5 pixels
+    this.paddleAY += randomAdjustment;
+
+    // Assurer que la raquette reste dans les limites du jeu
+    this.paddleAY = Math.max(0, Math.min(this.gameHeight - this.paddleHeight, this.paddleAY));
+}
 
     updatePaddleB() {
         if (this.ballTouchedByPaddleA) {
             let currentState = this.getCurrentState();
             let action = this.chooseAction(currentState);
             this.paddleBY = this.executeAction(this.paddleBY, action);
+
+            // Deuxième décision : comment frapper la balle
+            let hitState = this.getCurrentHitState();
+            let hitAction = this.chooseHitAction(hitState);
+            this.paddleBY = this.executeHitAction(this.paddleBY, hitAction);
             this.ballTouchedByPaddleA = false;  // Réinitialiser après avoir réagi
         }
     }
@@ -206,6 +218,76 @@ class PongGame {
         }
         console.log("future ballY: " + this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY))
         console.log("new paddleBY: " + paddleBY)
+        return paddleBY;
+    }
+
+
+    getCurrentHitState() {
+        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
+        let paddleCenterY = this.paddleBY + this.paddleHeight / 2;
+        let ballRelativePosition = futureBallY - paddleCenterY;
+    
+        if (ballRelativePosition < -this.paddleHeight / 3) {
+            return "ballTop";
+        } else if (ballRelativePosition > this.paddleHeight / 3) {
+            return "ballBottom";
+        } else {
+            return "ballMiddle";
+        }
+    }
+
+    chooseHitAction(hitState) {
+        // Vérifier si l'état existe dans la table Q et l'initialiser si nécessaire
+        if (!this.QTable[hitState]) {
+            this.QTable[hitState] = {};
+            this.hitActions.forEach(a => this.QTable[hitState][a] = 0);
+        }
+
+        // Choisir une action en fonction de la table Q
+        if (Math.random() < this.epsilon) {
+            return this.hitActions[Math.floor(Math.random() * this.hitActions.length)];
+        } else {
+            let maxQValue = Math.max(...Object.values(this.QTable[hitState]));
+            let bestActions = this.hitActions.filter(a => this.QTable[hitState][a] === maxQValue);
+            return bestActions[Math.floor(Math.random() * bestActions.length)];
+        }
+    }
+    
+    executeHitAction(paddleBY, hitAction) {
+        let adjustment = 0;
+        
+        console.log("hitAction: " + hitAction);
+        switch (hitAction) {
+            case "hitTop":
+                // Déplacer la raquette vers le haut pour frapper avec le haut de la raquette
+                // Si la raquette est déjà en haut, ne pas monter plus haut
+                if (paddleBY > 50) {
+                    adjustment = -this.paddleHeight / 5;
+                }
+                break;
+            case "hitMiddle":
+                // Pas besoin de déplacer la raquette pour un coup au milieu
+                adjustment = 0;
+                break;
+            case "hitBottom":
+                // Déplacer la raquette vers le bas pour frapper avec le bas de la raquette
+                // Si la raquette est déjà en bas, ne pas descendre plus bas
+                if (paddleBY < this.gameHeight - this.paddleHeight) {
+                    adjustment = this.paddleHeight / 5;
+                }
+                break;
+            default:
+                // En cas d'action inconnue, ne pas déplacer la raquette
+                adjustment = 0;
+                break;
+        }
+    
+        if (paddleBY + adjustment < 0 || paddleBY + adjustment > this.gameHeight ) {
+            return paddleBY;
+        }
+        // Appliquer l'ajustement tout en veillant à ce que la raquette reste dans les limites du jeu
+        paddleBY = paddleBY + adjustment;
+        console.log("new paddleBY after action top or bottom : " + paddleBY);
         return paddleBY;
     }
 
