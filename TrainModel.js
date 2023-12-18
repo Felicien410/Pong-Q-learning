@@ -1,5 +1,3 @@
-
-
 const fs = require('fs'); // ca c est pour enregister le JSON (q Table)
 
 class PongGame {
@@ -131,25 +129,56 @@ class PongGame {
             this.paddleAY = newPaddleY;
         }
     }
+    getCurrentState() {
+        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
+        let paddleCenterY = this.paddleBY + this.paddleHeight / 2;
+        let ballRelativePosition = futureBallY - paddleCenterY;
+
+        if (ballRelativePosition < -this.paddleHeight / 3) {
+            return "ballTop";
+        } else if (ballRelativePosition > this.paddleHeight / 3) {
+            return "ballBottom";
+        } else {
+            return "ballMiddle";
+        }
+    }
 
     updatePaddleB() {
+        if (this.movingPaddleB) {
+            let paddleCenterY = this.paddleBY + this.paddleHeight / 2;
+
+            if (this.futureBallToPosition > paddleCenterY) {
+                this.paddleBY = Math.min(this.paddleBY + this.movePerUpdate, this.gameHeight - this.paddleHeight);
+            } else {
+                this.paddleBY = Math.max(this.paddleBY - this.movePerUpdate, 0);
+            }
+
+            this.updatesCountB++;
+            if (this.updatesCountB >= this.totalUpdatesB) {
+                this.movingPaddleB = false; // Arrête le déplacement
+            }
+            return
+        }
         if (this.ballTouchedByPaddleA) {
-            // Première décision : où se positionner
-            this.paddleBY = this.executeAction(this.paddleBY);
+            this.executeAction();
     
-            // Deuxième décision : comment frapper la balle
             let hitState = this.getCurrentHitState();
             let hitAction = this.chooseHitAction(hitState);
             this.paddleBY = this.executeHitAction(this.paddleBY, hitAction);
-            //Gérer l'action de frappe (ajuster l'angle de rebond, etc.)
-    
+
             let reward = this.calculateReward();
-            let nextState = this.getCurrentState(); // Mise à jour après l'action de frappe
+            let nextState = this.getCurrentState();
             this.updateQTable(hitState, hitAction, reward, nextState);
     
             this.ballTouchedByPaddleA = false;
             console.log("\n")
         }
+        else
+        {
+
+            console.log("ballX " + this.ballX, "\nballY " + this.ballY, "\nballSpeedX " + this.ballSpeedX, "\nballSpeedY " + this.ballSpeedY + "\n\n");
+        }
+
     }
 
     calculateFutureBallPosition(currentBallX, currentBallY, speedX, speedY) {
@@ -158,76 +187,55 @@ class PongGame {
         let futureBallY = currentBallY;
         let futureSpeedX = speedX;
         let futureSpeedY = speedY;
-    
+
         while (futureBallX + this.ballSize < this.gameWidth) {
             futureBallX += futureSpeedX;
             futureBallY += futureSpeedY;
-    
+
             // Gérer les rebonds verticaux
             if (futureBallY <= 0 || futureBallY >= this.gameHeight - this.ballSize) {
                 futureSpeedY = -futureSpeedY;
             }
-    
+
             // Si la balle atteint le côté gauche, inverser la direction horizontale
             if (futureBallX <= 0) {
                 futureSpeedX = -futureSpeedX;
             }
         }
-    
         return futureBallY;
-    }
-    
-    getCurrentState() { // fournit toutes les infos qui faut pour que l ia puisse prendre une decision ( la vitesse de la balle, la position de la raquette, etc.)
-        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
-        return `_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;   
-    }
-
-    chooseAction(state) { // choisir l action a effectuer (monter, descendre, stay)
-        if (!this.QTable[state]) { // Si l'état n'existe pas dans la table Q, l'ajouter (debut de la partie)
-            this.QTable[state] = {};
-            this.actions.forEach(a => this.QTable[state][a] = 0);
-        }
-        if (Math.random() < this.epsilon) { // Exploration (choisir une action au hasard grace a epsilon a 20% (1 chance sur 5 de choisir une action au hasard))
-            console.log("random action");
-            return this.actions[Math.floor(Math.random() * this.actions.length)];
-        } else { //Equation de Bellman (pour calculer la nouvelle valeur de la récompense, j ai rien compris mais ca marche)
-            let maxQValue = Math.max(...Object.values(this.QTable[state]));
-            let bestActions = this.actions.filter(a => this.QTable[state][a] === maxQValue);
-            return bestActions[Math.floor(Math.random() * bestActions.length)];
-        }
     }
 
     calculateOptimalMove(futureBallY) {
         let distanceToFutureBallY = Math.abs(futureBallY - (this.paddleBY + this.paddleHeight / 2));
-
-        
-    
         return distanceToFutureBallY;
     }
 
-    executeAction(paddleBY) {
-        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
-        console.log("1) la balle va aller en Y : " + futureBallY)
-        console.log("2) la raquette est en Y : " + paddleBY)
+    calculateTimeToOppositeWall(currentBallX, speedX) {
+        let distanceToWall = this.gameWidth - currentBallX - this.ballSize;
+        let time = 0;
+    
+        // Calculer le temps en se basant sur la distance et la vitesse horizontale
+        // Assurer que speedX est non nul pour éviter une division par zéro
+        if (speedX !== 0) {
+            time = distanceToWall / Math.abs(speedX);
+        }
+    
+        return time;
+    }
 
-        let optimalMove = this.calculateOptimalMove(futureBallY);
-        console.log("3) elle doit donc se deplacer de  : " + optimalMove + " pixels")
-        let paddleCenterY = paddleBY + this.paddleHeight / 2;
-    
-        if (futureBallY > paddleCenterY) {
-            // La balle est trop basse, déplacer la raquette vers le bas
-            paddleBY = Math.min(paddleBY + optimalMove, this.gameHeight - this.paddleHeight);
-        }
-        else {
-            // La balle est trop haute, déplacer la raquette vers le haut
-            paddleBY = Math.max(paddleBY - optimalMove, 0);
-        }
-        console.log("4)new paddleBY after action : " + paddleBY);
-    
-        // Assurez-vous que paddleBY est toujours dans les limites
-        paddleBY = Math.max(0, Math.min(paddleBY, this.gameHeight - this.paddleHeight));
-    
-        return paddleBY;
+    executeAction() {
+        let time = this.calculateTimeToOppositeWall(this.ballX, this.ballSpeedX);
+
+        this.futureBallToPosition = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
+        let optimalMove = this.calculateOptimalMove(this.futureBallToPosition);
+
+        // Calculez le déplacement par mise à jour
+        this.movePerUpdate = optimalMove / time;
+        this.updatesCountB = 0;
+        this.totalUpdatesB = Math.ceil(time);
+        this.movingPaddleB = true; // Indique que le paddle B doit se déplacer
+
+
     }
     
     getCurrentHitState() {
@@ -242,7 +250,6 @@ class PongGame {
         } else {
             return "ballMiddle";
         }
-        
     }
 
     chooseHitAction(hitState) {
@@ -269,7 +276,7 @@ class PongGame {
         switch (hitAction) {
             case "hitTop":
                 if (paddleBY > 0) {
-                    adjustment = -this.paddleHeight / 5;
+                    adjustment = -this.paddleHeight / 4;
                 }
                 break;
             case "hitMiddle":
@@ -277,7 +284,7 @@ class PongGame {
                 break;
             case "hitBottom":
                 if (paddleBY < this.gameHeight - this.paddleHeight) {
-                    adjustment = this.paddleHeight / 5;
+                    adjustment = this.paddleHeight / 4;
                 }
                 break;
             default:
@@ -338,7 +345,6 @@ class PongGame {
         console.log("Position de la balle après rebond: X=" + newBallX + ", Y=" + newBallY);
         return newBallY; 
     }
-    
 
     updateQTable(state, action, reward, nextState) { // mettre a jour la table Q
         // va enregistrer la nouvelle valeur de la récompense dans la table Q, grace a l equation de Bellman 

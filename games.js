@@ -5,13 +5,20 @@ class PongGame {
         this.resetGameState();
 
         this.actions = ["stay", "moveDown", "moveUp"];
-        this.hitActions = ["hitTop", "hitMiddle", "hitBottom"];
+
+        this.movingPaddleB = false;
+        this.movePerUpdate = 0;
+        this.updatesCountB = 0;
+        this.totalUpdatesB = 0;
+        this.futureBallToPosition = 0;
+        this.interval = 1000 / 60; // 60 images par seconde
 
         this.paddleAElement = document.getElementById('paddleA');
         this.paddleBElement = document.getElementById('paddleB');
         this.ballElement = document.getElementById('ball');
         this.scoreAElement = document.getElementById('scoreA');
         this.scoreBElement = document.getElementById('scoreB');
+
     }
 
     resetGameState() {
@@ -61,7 +68,7 @@ class PongGame {
         // Mise à jour des raquettes
         this.updatePaddleA(); // IA ou joueur automatique pour paddleA
         this.updatePaddleB(); // IA pour paddleB
-        
+
         // Vérifier les scores
         this.checkScore();
 
@@ -117,7 +124,6 @@ class PongGame {
         }
     }
 
-
     updatePaddleA() {
         // Stratégie simple pour paddleA (juste suivre la balle)
         if (this.ballY > this.paddleAY + this.paddleHeight / 2) {
@@ -127,7 +133,7 @@ class PongGame {
         }
     
         // Ajouter une variation aléatoire, en veillant à ne pas sortir des limites
-        let randomAdjustment = (Math.random() - 0.5) * 30; // variation aléatoire de +/- 5 pixels
+        let randomAdjustment = (Math.random() - 0.5) * 30; // variation aléatoire de pixels
         let newPaddleY = this.paddleAY + randomAdjustment;
         newPaddleY = Math.max(0, Math.min(this.gameHeight - this.paddleHeight, newPaddleY));
 
@@ -137,164 +143,88 @@ class PongGame {
         }
     }
 
-updatePaddleB() {
-    if (this.ballTouchedByPaddleA) {
-        // Première décision : où se positionner
-        this.paddleBY = this.executeAction(this.paddleBY);
+    updatePaddleB() {
+        if (this.movingPaddleB) {
+            let paddleCenterY = this.paddleBY + this.paddleHeight / 2;
 
-        // Deuxième décision : comment frapper la balle
-        let hitState = this.getCurrentHitState();
-        let hitAction = this.chooseHitAction(hitState);
-        this.paddleBY = this.executeHitAction(this.paddleBY, hitAction);
-        //Gérer l'action de frappe (ajuster l'angle de rebond, etc.)
+            if (this.futureBallToPosition > paddleCenterY) {
+                console.log("move down")
+                this.paddleBY = Math.min(this.paddleBY + this.movePerUpdate, this.gameHeight - this.paddleHeight);
+            } else {
+                console.log("move up")
+                this.paddleBY = Math.max(this.paddleBY - this.movePerUpdate, 0);
+            }
 
-        this.ballTouchedByPaddleA = false;
-        console.log("\n")
-    }
-}
-
-calculateFutureBallPosition(currentBallX, currentBallY, speedX, speedY) {
-    // pour predire excactement la ou la balle va aller (en Y)
-    let futureBallX = currentBallX;
-    let futureBallY = currentBallY;
-    let futureSpeedX = speedX;
-    let futureSpeedY = speedY;
-
-    while (futureBallX + this.ballSize < this.gameWidth) {
-        futureBallX += futureSpeedX;
-        futureBallY += futureSpeedY;
-
-        // Gérer les rebonds verticaux
-        if (futureBallY <= 0 || futureBallY >= this.gameHeight - this.ballSize) {
-            futureSpeedY = -futureSpeedY;
+            this.updatesCountB++;
+            if (this.updatesCountB >= this.totalUpdatesB || this.paddleBY + this.paddleHeight === this.futureBallToPosition) {
+                this.movingPaddleB = false; // Arrête le déplacement
+            }
         }
+        if (this.ballTouchedByPaddleA) {
+            // Première décision : où se positionner
+            this.executeAction();
 
-        // Si la balle atteint le côté gauche, inverser la direction horizontale
-        if (futureBallX <= 0) {
-            futureSpeedX = -futureSpeedX;
+            this.ballTouchedByPaddleA = false;
+            console.log("\n")
         }
     }
-    return futureBallY;
-}
-    
-    getCurrentState() {
-        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
-        console.log("future ball Y", futureBallY, "balle Y", this.ballY)
-        return `_paddleBY:${Math.round(this.paddleBY)}_futureBallY:${Math.round(futureBallY)}`;
-        }
 
-    chooseAction(state) {
-        if (!this.QTable[state]) {
-            this.QTable[state] = {};
-            this.actions.forEach(a => this.QTable[state][a] = 0);
+    calculateFutureBallPosition(currentBallX, currentBallY, speedX, speedY) {
+        // pour predire excactement la ou la balle va aller (en Y)
+        let futureBallX = currentBallX;
+        let futureBallY = currentBallY;
+        let futureSpeedX = speedX;
+        let futureSpeedY = speedY;
+
+        while (futureBallX + this.ballSize < this.gameWidth) {
+            futureBallX += futureSpeedX;
+            futureBallY += futureSpeedY;
+
+            // Gérer les rebonds verticaux
+            if (futureBallY <= 0 || futureBallY >= this.gameHeight - this.ballSize) {
+                futureSpeedY = -futureSpeedY;
+            }
+
+            // Si la balle atteint le côté gauche, inverser la direction horizontale
+            if (futureBallX <= 0) {
+                futureSpeedX = -futureSpeedX;
+            }
         }
-        if (Math.random() < this.epsilon) {
-            return this.actions[Math.floor(Math.random() * this.actions.length)];
-        } else {
-            let maxQValue = Math.max(...Object.values(this.QTable[state]));
-            let bestActions = this.actions.filter(a => this.QTable[state][a] === maxQValue);
-            return bestActions[Math.floor(Math.random() * bestActions.length)];
-        }
+        return futureBallY;
     }
+        
 
     calculateOptimalMove(futureBallY) {
         let distanceToFutureBallY = Math.abs(futureBallY - (this.paddleBY + this.paddleHeight / 2));
         return distanceToFutureBallY;
     }
 
-
-    executeAction(paddleBY) {
-        time = this.calculateTimeToOppositeWall(this.ballX, this.ballSpeedX);
-        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
-        console.log("1) la balle va aller en Y : " + futureBallY)
-        console.log("2) la raquette est en Y : " + paddleBY)
-
-        let optimalMove = this.calculateOptimalMove(futureBallY);
-        console.log("3) elle doit donc se deplacer de  : " + optimalMove + " pixels")
-        let paddleCenterY = paddleBY + this.paddleHeight / 2;
+    calculateTimeToOppositeWall(currentBallX, speedX) {
+        let distanceToWall = this.gameWidth - currentBallX - this.ballSize;
+        let time = 0;
     
-        if (futureBallY > paddleCenterY) {
-            // La balle est trop basse, déplacer la raquette vers le bas
-            paddleBY = Math.min(paddleBY + optimalMove, this.gameHeight - this.paddleHeight);
+        // Calculer le temps en se basant sur la distance et la vitesse horizontale
+        // Assurer que speedX est non nul pour éviter une division par zéro
+        if (speedX !== 0) {
+            time = distanceToWall / Math.abs(speedX);
         }
-        else {
-            // La balle est trop haute, déplacer la raquette vers le haut
-            paddleBY = Math.max(paddleBY - optimalMove, 0);
-        }
-        console.log("4)new paddleBY after action : " + paddleBY);
     
-        // Assurez-vous que paddleBY est toujours dans les limites
-        paddleBY = Math.max(0, Math.min(paddleBY, this.gameHeight - this.paddleHeight));
-    
-        return paddleBY;
-    }
-    
-
-    getCurrentHitState() {
-        let futureBallY = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
-        let paddleCenterY = this.paddleBY + this.paddleHeight / 2;
-        let ballRelativePosition = futureBallY - paddleCenterY;
-    
-        if (ballRelativePosition < -this.paddleHeight / 3) {
-            return "ballTop";
-        } else if (ballRelativePosition > this.paddleHeight / 3) {
-            return "ballBottom";
-        } else {
-            return "ballMiddle";
-        }
+        return time;
     }
 
-    chooseHitAction(hitState) {
-        // Vérifier si l'état existe dans la table Q et l'initialiser si nécessaire
-        if (!this.QTable[hitState]) {
-            this.QTable[hitState] = {};
-            this.hitActions.forEach(a => this.QTable[hitState][a] = 0);
-        }
+    executeAction() {
+        let time = this.calculateTimeToOppositeWall(this.ballX, this.ballSpeedX);
 
-        // Choisir une action en fonction de la table Q
-        if (Math.random() < this.epsilon) {
-            return this.hitActions[Math.floor(Math.random() * this.hitActions.length)];
-        } else {
-            let maxQValue = Math.max(...Object.values(this.QTable[hitState]));
-            let bestActions = this.hitActions.filter(a => this.QTable[hitState][a] === maxQValue);
-            return bestActions[Math.floor(Math.random() * bestActions.length)];
-        }
+        this.futureBallToPosition = this.calculateFutureBallPosition(this.ballX, this.ballY, this.ballSpeedX, this.ballSpeedY);
+        let optimalMove = this.calculateOptimalMove(this.futureBallToPosition);
+
+        // Calculez le déplacement par mise à jour
+        this.movePerUpdate = optimalMove / time;
+        this.updatesCountB = 0;
+        this.totalUpdatesB = Math.ceil(time);
+        this.movingPaddleB = true; // Indique que le paddle B doit se déplacer
     }
     
-    executeHitAction(paddleBY, hitAction) {
-        let adjustment = 0;
-    
-        console.log("5) je choisis de taper vers: " + hitAction);
-        switch (hitAction) {
-            case "hitTop":
-                if (paddleBY > 0) {
-                    adjustment = -this.paddleHeight / 5;
-                }
-                break;
-            case "hitMiddle":
-                // Pas de changement pour "hitMiddle"
-                break;
-            case "hitBottom":
-                if (paddleBY < this.gameHeight - this.paddleHeight) {
-                    adjustment = this.paddleHeight / 5;
-                }
-                break;
-            default:
-                break;
-        }
-    
-        // Calculer la nouvelle position en tenant compte de l'ajustement
-        console.log("6) pour etre sur voici ma position " + paddleBY);
-        let newPaddleBY = paddleBY + adjustment;
-    
-        // Assurez-vous que la raquette reste dans les limites
-
-        newPaddleBY = Math.max(0, Math.min(newPaddleBY, this.gameHeight - this.paddleHeight));
-    
-        console.log("7) nouvelle position apres ajustement : " + newPaddleBY);
-        return newPaddleBY;
-    }
-
     checkScore() {
         if (this.ballX <= 0) {
             this.scoreB++;
@@ -336,7 +266,7 @@ calculateFutureBallPosition(currentBallX, currentBallY, speedX, speedY) {
                 this.update();
                 //this.render();
             }
-        }, 1000 / 60);
+        }, this.interval);
     }
 }
 
